@@ -1,6 +1,7 @@
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <stdio.h>
+#include <driver/gpio.h>
 
 #include <wifiManager.hpp>
 #include "wifi_credential.h"
@@ -41,7 +42,7 @@ void app_main();
 void app_main() {
 	_i("Start LwM2MClient");
 
-	WiFi::Connect(WIFI_SSID, WIFI_PASSWORD);
+	WiFi::Connect(SSID, PASSWORD);
 	_i("IP: %s", inet_ntoa(*WiFi::getIp()));
 
 	int led = 0;
@@ -58,7 +59,7 @@ void app_main() {
 						// .Bootstrap("bootstrap.soracom.io", 5683)
 
 						// 払い出し済みのキーを使う場合
-						.SetSecurityPram(SORACOM_DEVICE_KEY, (const uint8_t *)SORACOM_DEVICE_SECRET)
+						.SetSecurityPram(DEVICE_KEY, (const uint8_t *)DEVICE_SECRET)
 
 						// 続けて登録するインスタンスを追加する
 						.AddInstance(new DeviceInstance(0)) // Object ID: 3

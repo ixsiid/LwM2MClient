@@ -26,7 +26,7 @@ LwM2MFactory& LwM2MFactory::Ip(ip4_addr_t* ip) {
 }
 
 LwM2MFactory& LwM2MFactory::Bootstrap(const char* host, int port) {
-	if (haveSecurityParam) throw "";
+	if (haveSecurityParam) return *this;
 	requireBootstraping = true;
 
 	strncpy(this->host, host, LWM2MFACTORY_MAX_HOST_LENGTH);
@@ -36,7 +36,7 @@ LwM2MFactory& LwM2MFactory::Bootstrap(const char* host, int port) {
 }
 
 LwM2MFactory& LwM2MFactory::SetSecurityPram(const char* identity, const uint8_t* psk) {
-	if (requireBootstraping) throw "";
+	if (requireBootstraping) return *this;
 	haveSecurityParam = true;
 
 	strncpy(this->identity, identity, LWM2MFACTORY_MAX_IDENTITY_LENGTH);
@@ -50,7 +50,7 @@ LwM2MFactory& LwM2MFactory::AddInstance(LwM2MInstance* instance) {
 	if (existInstance) {
 		long id = instance->getId();
 		_i("Exist instance /%u/%u", (uint16_t)id >> 16, (uint16_t)id & 0xffff);
-		throw "既にそのインスタンスは存在します。";
+		free(existInstance);
 	}
 	currentInstance = instance;
 
@@ -63,7 +63,7 @@ LwM2MFactory& LwM2MFactory::AddResource(int resourceId, std::function<void(Opera
 }
 
 LwM2MClient* LwM2MFactory::Regist(const char* host, int port) {
-	if (!isIpConfigured) throw "";
+	if (!isIpConfigured) return nullptr;
 
 	_i("Start construct");
 	LwM2MClient* lwm2m = new LwM2MClient(name, lifetime, instances, ip, host, port);
@@ -76,7 +76,7 @@ LwM2MClient* LwM2MFactory::Regist(const char* host, int port) {
 	} else if (haveSecurityParam) {
 		lwm2m->SkipBootstrap(identity, psk);
 	} else {
-		throw "";
+		return nullptr;
 	}
 
 	_i("start");

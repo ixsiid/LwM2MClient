@@ -105,11 +105,11 @@ void Dtls::dtlsPrf(uint8_t *secret, int secretLen, uint8_t *label, int labelLen,
 	int index = 0;
 
 	while (index < outputLen) {
-		hmacSha256(secret, secretLen, a, hashLen, a);
+		SHA256::hmacSha256(secret, secretLen, a, hashLen, a);
 		hashLen = 32;
 		memcpy(&message[0], a, 32);
 		memcpy(&message[32], labelSeed, labelSeedLen);
-		hmacSha256(secret, secretLen, message, 32 + labelSeedLen, message);
+		SHA256::hmacSha256(secret, secretLen, message, 32 + labelSeedLen, message);
 		if (index + 32 >= outputLen) {
 			memcpy(&output[index], message, outputLen - index);
 			index = outputLen;
@@ -404,7 +404,7 @@ bool Dtls::sendFinished() {
 
 	// Finished Content
 	uint8_t messageHash[32];
-	sha256(handshake.messages, handshake.messageLen, messageHash);
+	SHA256::sha256(handshake.messages, handshake.messageLen, messageHash);
 	dtlsPrf(
 	    handshake.masterSecret, 48,
 	    (uint8_t *)ClientFinishedLabel, strlen(ClientFinishedLabel),
@@ -443,7 +443,7 @@ bool Dtls::sendFinished() {
 	if (dtlsDecrypt(&encryptedVerified[0], packetLenServerVerified, 22, &verifiedPacket[0])) {
 		uint8_t serverVerify[12];
 		uint8_t serverMessageHash[32];
-		sha256(handshake.messages, handshake.messageLen, serverMessageHash);
+		SHA256::sha256(handshake.messages, handshake.messageLen, serverMessageHash);
 		dtlsPrf(
 		    handshake.masterSecret, 48,
 		    (uint8_t *)ServerFinishedLabel, strlen(ServerFinishedLabel),

@@ -7,25 +7,30 @@
 #include <lwip/netdb.h>
 #include <lwip/sys.h>
 
+#define TAG "LwM2M::UDP"
+#include "log.h"
+
 using namespace LwM2M;
 
 UDP::UDP(ip4_addr_t *my_ip, const char *host, int port) {
-	// Sender initialize
 	_socket = socket(PF_INET, SOCK_DGRAM, 0);
 	if (_socket < 0) {
-		throw;
+		_e("Socket error");
+		return;
 	}
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family	 = AF_INET;
 	addr.sin_addr.s_addr = inet_addr(host);
 	addr.sin_port		 = htons(port);
-
+/*
 	// Receiver initialize
 	_socket = socket(PF_INET, SOCK_DGRAM, 0);
 	if (_socket < 0) {
+		_e("")
 		throw;
 	}
+*/
 }
 
 bool UDP::send(const uint8_t *buffer, uint16_t length) {
