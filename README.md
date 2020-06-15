@@ -12,7 +12,7 @@ Based on easi (https://github.com/1stship/easi)
 void app_main() {
 	LwM2MClient *lwm2m = LwM2MFactory("espidf2", 120)
 				.Ip(WiFi::getIp())
-				.SetSecurityPram(SORACOM_DEVICE_KEY, (const uint8_t *)SORACOM_DEVICE_SECRET)
+				.SetSecurityPram(DEVICE_KEY, (const uint8_t *)DEVICE_SECRET)
                         
 				.AddInstance(new DeviceInstance(0)) // Object ID: 3
 				.AddResource(2, [](Operations operation, TLVData *tlv, int length) {
