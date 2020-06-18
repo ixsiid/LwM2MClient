@@ -1,5 +1,7 @@
 #include "lwm2mFactory.hpp"
 
+#include <esp_system.h>
+
 #define TAG "LwM2M Factory"
 #include "log.h"
 
@@ -8,6 +10,11 @@ using namespace LwM2M;
 LwM2MFactory::LwM2MFactory(const char* name, uint16_t lifetime) {
 	requireBootstraping = false;
 	haveSecurityParam	= false;
+	
+	size_t free_heap = esp_get_free_heap_size();
+	if (free_heap < 15000) {
+		_w("Free heap memory size is %d, LwM2M Client used about 12kbyte heap memory.", free_heap);
+	}
 
 	this->lifetime = lifetime;
 

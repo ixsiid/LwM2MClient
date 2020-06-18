@@ -68,7 +68,7 @@ typedef struct {
 static const size_t TLVDATA_LENGTH = 8;
 
 typedef union /*__attribute__((packed))*/ {
-	uint8_t row[TLVDATA_LENGTH];
+	uint8_t raw[TLVDATA_LENGTH];
 	int64_t int64Value;
 	int32_t int32Value;
 	int16_t int16Value;
@@ -87,7 +87,7 @@ typedef struct __attribute__((packed)) {
 } TLVMeta;
 
 typedef union {
-	uint8_t row[7];
+	uint8_t raw[7];
 	struct __attribute__((packed)) {
 		size_t dataLength;
 		uint16_t id;
@@ -141,7 +141,7 @@ inline size_t Resource::calculateParse(const uint8_t* buffer) { return Resource:
 inline uint16_t Resource::getId() { return header.id; }
 inline uint16_t Resource::getId(const uint8_t* buffer) {
 	TLVHeader header;
-	header.row[6] = buffer[0];
+	header.raw[6] = buffer[0];
 	uint16_t id   = buffer[1];
 	if (header.meta.maxIdLength == MaxIdLength::IdLength_FFFF) {
 		id <<= 8;

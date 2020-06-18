@@ -50,17 +50,17 @@ int Resource::Serialize(uint8_t* buffer) {
 	size_t b = 0;
 	int h    = 6;
 	// meta
-	buffer[b++] = header.row[h--];
+	buffer[b++] = header.raw[h--];
 	// id
-	if (header.row[h] != 0)
-		buffer[b++] = header.row[h--];
+	if (header.raw[h] != 0)
+		buffer[b++] = header.raw[h--];
 	else
 		h--;
-	buffer[b++] = header.row[h--];
+	buffer[b++] = header.raw[h--];
 
 	// data length
-	while (header.row[h] == 0) h--;
-	while (h >= 0) buffer[b++] = header.row[h--];
+	while (header.raw[h] == 0) h--;
+	while (h >= 0) buffer[b++] = header.raw[h--];
 
 	size_t len = header.dataLength ? header.dataLength : header.meta.dataLength;
 
@@ -71,7 +71,7 @@ int Resource::Serialize(uint8_t* buffer) {
 			memcpy(buffer + b, data.bytesValue.pointer, len);
 			break;
 		default:
-			revcpy(buffer + b, data.row, len);
+			revcpy(buffer + b, data.raw, len);
 			break;
 	}
 
@@ -87,23 +87,23 @@ size_t Resource::parse(Resource* resource, const uint8_t* buffer) {
 	size_t b = 0;
 	int h    = 6;
 
-	header->row[h--] = buffer[b++];
+	header->raw[h--] = buffer[b++];
 
 	// id
-	header->row[h--] = header->meta.maxIdLength == MaxIdLength::IdLength_FF ? 0 : buffer[b++];
-	header->row[h--] = buffer[b++];
+	header->raw[h--] = header->meta.maxIdLength == MaxIdLength::IdLength_FF ? 0 : buffer[b++];
+	header->raw[h--] = buffer[b++];
 
 	// datalength
 
 	switch (header->meta.maxDataLength) {
 		case MaxDataLength::DataLength_FF:
-			header->row[h--] = 0;
+			header->raw[h--] = 0;
 			[[fallthrough]];
 		case MaxDataLength::DataLength_FFFF:
-			header->row[h--] = 0;
+			header->raw[h--] = 0;
 			[[fallthrough]];
 		case MaxDataLength::DataLength_FFFFFF:
-			header->row[h--] = 0;
+			header->raw[h--] = 0;
 			break;
 		case MaxDataLength::DataLength_07:
 			header->dataLength = header->meta.dataLength;
@@ -111,7 +111,7 @@ size_t Resource::parse(Resource* resource, const uint8_t* buffer) {
 			h = -1;  // 後続のheader->detaLength格納処理をスキップさせる
 			break;
 	}
-	while (h >= 0) header->row[h--] = buffer[b++];
+	while (h >= 0) header->raw[h--] = buffer[b++];
 
 	if (resource) {
 		switch (resource->type) {
@@ -124,8 +124,8 @@ size_t Resource::parse(Resource* resource, const uint8_t* buffer) {
 				resource->data.bytesValue.length  = header->dataLength;
 				break;
 			default:
-				revcpy(resource->data.row, &buffer[b], header->dataLength);
-				memset(&resource->data.row[header->dataLength], 0, TLVDATA_LENGTH - header->dataLength);
+				revcpy(resource->data.raw, &buffer[b], header->dataLength);
+				memset(&resource->data.raw[header->dataLength], 0, TLVDATA_LENGTH - header->dataLength);
 				break;
 		}
 	}
@@ -141,9 +141,9 @@ size_t Resource::getDataLength() {
 		case Unsigned:
 			return 4;
 			// Integerは1, 2, 4, 8byteのいずれかとあるが、SORACOMでは1, 2, 8byte長を許容していない
-			// if (*((uint32_t *)&row[4]) != 0x00000000) return 8;
-			// if (*((uint16_t *)&row[2]) != 0x0000) return 4;
-			// if (*((uint8_t *)&row[1]) != 0x00) return 2;
+			// if (*((uint32_t *)&raw[4]) != 0x00000000) return 8;
+			// if (*((uint16_t *)&raw[2]) != 0x0000) return 4;
+			// if (*((uint8_t *)&raw[1]) != 0x00) return 2;
 			// return 1;
 		case Float:
 			// SORACOMでは4byteを許容していない（）要調査
