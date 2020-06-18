@@ -87,14 +87,6 @@ size_t Resource::parse(Resource* resource, const uint8_t* buffer) {
 	size_t b = 0;
 	int h    = 6;
 
-	{
-		char buf[128];
-		for (int i = 0; i < 7; i++) {
-			sprintf(&buf[i * 3], "%2x ", buffer[i]);
-		}
-		_i("buffer: %s", buf);
-	}
-
 	header->row[h--] = buffer[b++];
 
 	// id
