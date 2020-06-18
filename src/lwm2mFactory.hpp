@@ -48,8 +48,8 @@ class LwM2MFactory {
 	LwM2MInstance* currentInstance;
 };
 
-inline LwM2MFactory::AddFixResource(int resourceId, char * data) {
-	AddFixResource(resourceId, (uint8_t *)data, strlen(data));
+inline LwM2MFactory& LwM2MFactory::AddFixResource(int resourceId, char * data) {
+	return AddFixResource(resourceId, (uint8_t *)data, strlen(data));
 }
 
 }  // namespace LwM2M
