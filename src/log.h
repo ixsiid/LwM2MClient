@@ -1,5 +1,6 @@
 #pragma once
 
+/*
 #ifndef LOG_LOCAL_LEVEL
 #ifdef CONFIG_LOG_DEFAULT_LEVEL
 #define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
@@ -14,6 +15,7 @@
 #define _v(...)
 
 #else
+*/
 #ifndef TAG
 #define TAG "NO NAME"
 #endif
@@ -25,4 +27,4 @@
 #define _d(format, ...) ESP_LOGD(TAG, format, ##__VA_ARGS__)
 #define _v(format, ...) ESP_LOGV(TAG, format, ##__VA_ARGS__)
 
-#endif
+//#endif

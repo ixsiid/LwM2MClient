@@ -63,11 +63,11 @@ bool LwM2MClient::Bootstrap(const char *bootstrapHost, int bootstrapPort) {
 
 	LwM2MInstance *securityInstance = new LwM2MObject::SecurityInstance();
 	instances->add(0, securityInstance);
-	securityInstance->registCallback(3, [&](Operations operation, TLVData *tlv, int length) {
-		memcpy(this->identity, tlv->bytesValue, length);
+	securityInstance->registCallback(3, [&](Operations operation, TLVData *tlv) {
+		strncpy(this->identity, (const char *)tlv->bytesValue.pointer, 32);
 	});
-	securityInstance->registCallback(5, [&](Operations operation, TLVData *tlv, int length) {
-		memcpy(this->psk, tlv->bytesValue, length);	// length := 16
+	securityInstance->registCallback(5, [&](Operations operation, TLVData *tlv) {
+		strncpy((char *)this->psk, (const char *)tlv->bytesValue.pointer, 16);
 	});
 
 	return Bootstrap();

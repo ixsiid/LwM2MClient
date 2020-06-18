@@ -1,6 +1,5 @@
 #include "lwm2mFactory.hpp"
 
-
 #define TAG "LwM2M Factory"
 #include "log.h"
 
@@ -57,8 +56,23 @@ LwM2MFactory& LwM2MFactory::AddInstance(LwM2MInstance* instance) {
 	return *this;
 }
 
-LwM2MFactory& LwM2MFactory::AddResource(int resourceId, std::function<void(Operations operation, TLVData* tlv, int dataLength)> callback) {
+LwM2MFactory& LwM2MFactory::AddResource(int resourceId, ResourceCallback callback) {
 	currentInstance->registCallback(resourceId, callback);
+	return *this;
+}
+
+LwM2MFactory& LwM2MFactory::AddFixResource(int resourceId, uint8_t* data, size_t length) {
+	TLVData d;
+	d.bytesValue.pointer = data;
+	d.bytesValue.length	 = length ? length : strlen((const char *)data);
+	currentInstance->setFixResource(resourceId, &d);
+	return *this;
+}
+
+LwM2MFactory& LwM2MFactory::AddFixResource(int resourceId, int64_t data) {
+	TLVData d;
+	d.int64Value = data;
+	currentInstance->setFixResource(resourceId, &d);
 	return *this;
 }
 

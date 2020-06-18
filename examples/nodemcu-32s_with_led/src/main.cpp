@@ -1,9 +1,10 @@
+#include <driver/gpio.h>
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <stdio.h>
-#include <driver/gpio.h>
 
 #include <wifiManager.hpp>
+
 #include "wifi_credential.h"
 /*
 #define SSID "your ssid"
@@ -28,7 +29,6 @@ const char DEVICE_SECRET_KEY_BYTE_ARRAY[] = {
 #include <objects/3311_LightControl.hpp>
 #include <objects/3_Device.hpp>
 
-
 #define TAG "LwM2M Client"
 #include "log.h"
 
@@ -51,7 +51,10 @@ void app_main() {
 	gpio_set_direction((gpio_num_t)BLINK_GPIO, GPIO_MODE_OUTPUT);
 	gpio_set_level((gpio_num_t)BLINK_GPIO, led);
 
+	size_t a = esp_get_free_heap_size();
+
 	int64_t time = esp_timer_get_time();
+	_i("%llx", (uint64_t)time);
 
 	LwM2MClient *lwm2m = LwM2MFactory("espidf2", 120)
 						.Ip(WiFi::getIp())
@@ -62,40 +65,61 @@ void app_main() {
 						.SetSecurityPram(DEVICE_KEY, (const uint8_t *)DEVICE_SECRET)
 
 						// 続けて登録するインスタンスを追加する
-						.AddInstance(new DeviceInstance(0)) // Object ID: 3
-						.AddResource(2, [](Operations operation, TLVData *tlv, int length) {
-							strcpy((char *)tlv->bytesValue, "123456789");
-							tlv->dataLength = 9;
-						})
-						.AddResource(4, [](Operations operation, TLVData *tlv, int length) {
-							_i("Execute parameter: %s", tlv->bytesValue);
+						.AddInstance(new DeviceInstance(0))  // Object ID: 3
+						.AddFixResource(2, (uint8_t *)"LwM2MClient Factory")
+						.AddFixResource(10, a / 1024)
+						.AddResource(4, [](Operations operation, TLVData *tlv) {
+							_i("Execute parameter: %s", (const char *)tlv->row);
 							esp_restart();
 						})
 
 						.AddInstance(new LightControlInstance(0))  // Object ID: 3311
-						.AddResource(5852, [&](Operations operation, TLVData *tlv, int length) {
+						.AddResource(5852, [&](Operations operation, TLVData *tlv) {
 							// On time
 							if (operation == Read) {
-								tlv->longValue	 = (esp_timer_get_time() - time) / 1000000;
-								tlv->dataLength = 4;
+								tlv->int32Value = (esp_timer_get_time() - time) / 1000000;
 							} else if (operation == Write) {
-								if (tlv->byteValue == 0) {
+								_i("%llx %llx", time, (uint64_t)tlv->int32Value);
+								if (tlv->int32Value == 0) {
 									time = esp_timer_get_time();
 								}
 							}
 						})
-						.AddResource(5850, [&](Operations operation, TLVData *tlv, int length) {
+						.AddResource(5850, [&](Operations operation, TLVData *tlv) {
 							// On/Off
 							if (operation == Read) {
-								tlv->byteValue	 = led;
-								tlv->dataLength = 1;
+								tlv->int8Value = led;
 							} else if (operation == Write) {
-								led = tlv->byteValue;
-								gpio_set_level((gpio_num_t)BLINK_GPIO, led);
+								gpio_set_level((gpio_num_t)BLINK_GPIO, led = tlv->int8Value);
+							}
+						})
+
+						.AddInstance(new LightControlInstance(5))  // Object ID: 3311
+						.AddResource(5852, [&](Operations operation, TLVData *tlv) {
+							// On time
+							if (operation == Read) {
+								tlv->int32Value = ((esp_timer_get_time() - time) / 1000000) * 3;
+							} else if (operation == Write) {
+								_i("%llx %llx", time, (uint64_t)tlv->int32Value);
+								if (tlv->int32Value == 0) {
+									time = esp_timer_get_time();
+								}
+							}
+						})
+						.AddResource(5850, [&](Operations operation, TLVData *tlv) {
+							// On/Off
+							if (operation == Read) {
+								tlv->int8Value = led;
+							} else if (operation == Write) {
+								gpio_set_level((gpio_num_t)BLINK_GPIO, led = tlv->int8Value);
 							}
 						})
 
 						.Regist(LWM2M_HOST, 5684);
+
+	size_t b = esp_get_free_heap_size();
+
+	_i("Heap %d -> %d (%d)", a, b, b - a);
 
 	_i("LwM2M Client initialized: %p", lwm2m);
 	xTaskCreatePinnedToCore([](void *lwm2m) {
@@ -104,8 +128,10 @@ void app_main() {
 	}, "EventLoop", 4096, lwm2m, 1, NULL, 0);
 
 	// 周期Notifyループ
-	xTaskCreatePinnedToCore([](void *lwm2m) {
+	xTaskCreatePinnedToCore([](void *lwm2m_p) {
 		_i("Notify management on %d", xPortGetCoreID());
+		LwM2MClient *lwm2m = (LwM2MClient *)lwm2m_p;
+
 		uint32_t lastNotified = esp_timer_get_time();
 		while (true) {
 			// Core1はWatch Dog Timerを介入させるためにDelay挿入
@@ -116,6 +142,7 @@ void app_main() {
 			if (now - lastNotified > 20000000) {
 				lastNotified = now;
 				((LwM2MClient *)lwm2m)->Notify(3311, 0, 5852);
+				((LwM2MClient *)lwm2m)->Notify(3311, 5, 5852);
 			}
 		}
 	}, "Notify", 4096, lwm2m, 1, NULL, 1);

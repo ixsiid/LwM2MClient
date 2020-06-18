@@ -2,231 +2,183 @@
 
 #include <string.h>
 
-#include "endian.hpp"
-
 using namespace LwM2M;
 
-void Resource::defaultOperation(Operations operation, TLVData* tlv, int dataLength) {}
+void Resource::nullOperation(Operations operation, TLVData* tlv) {}
 
-/*
-enum TLVType {
-    ObjectInstance  = 0,
-    ResouceInstance,
-    MultipleResouce,
-    Resouce
-};
-*/
-
-Resource::Resource(int id, Operations operation, ResourceType type) {
-	this->id		 = id;
+Resource::Resource(uint16_t id, Operations operation, Type type) {
 	this->operation = operation;
 	this->type	 = type;
-	this->typeOfId	 = 3;  // LwM2M::TLVType::Resource
 
-	callback = defaultOperation;
+	memset(&header, 0, sizeof(header));
+	memset(&data, 0, sizeof(data));
 
-	switch (type) {
-		case TypeString:
-		case TypeOpaque:
-		case TypeNone:
-			data.bytesValue    = (uint8_t*)malloc(256); // 4096くらいとってもいい
-			data.bytesValue[0] = '\0';
-			data.dataLength    = 0;
-			break;
-		case TypeInteger:
-		case TypeBoolean:
-			data.byteValue	 = 0;
-			data.dataLength = 1;
-			break;
-		case TypeFloat:
-		case TypeTime:
-			data.floatValue = 0;
-			data.longValue	 = 0;
-			data.dataLength = 8;
-			break;
-		case TypeObjlnk:
-			data.objectInstanceLinkValue = 0;
-			data.dataLength		    = 4;
-			break;
-	}
-}
+	header.id			    = id;
+	header.meta.typeOfId    = TLVType::Resouce;
+	header.meta.maxIdLength = id <= 0xff ? MaxIdLength::IdLength_FF : MaxIdLength::IdLength_FFFF;
 
-void Resource::registCallback(std::function<void(Operations operation, TLVData* tlv, int dataLength)> callback) {
-	this->callback = callback;
+	callback = nullOperation;
 }
 
 bool Resource::isRead() { return operation & Read; }
 bool Resource::isWrite() { return operation & Write; }
 bool Resource::isExecute() { return operation & Execute; }
 
+void revcpy(uint8_t* output, const uint8_t* input, size_t length) {
+	size_t i = 0;
+	while (length > 0) output[i++] = input[--length];
+}
+
 int Resource::Serialize(uint8_t* buffer) {
-	buffer[0] = typeOfId << 6;
+	header.dataLength = getDataLength();
 
-	int length = 1;
-	if (id <= 0xff) {
-		buffer[length++] = (uint8_t)id;
+	if (header.dataLength > 0xffff) {
+		header.meta.maxDataLength = MaxDataLength::DataLength_FFFFFF;
+	} else if (header.dataLength > 0xff) {
+		header.meta.maxDataLength = MaxDataLength::DataLength_FFFF;
+	} else if (header.dataLength > 0x07) {
+		header.meta.maxDataLength = MaxDataLength::DataLength_FF;
 	} else {
-		buffer[0] += (1 << 5);
-		length += putUint16ToBytes(id, &buffer[length]);
+		header.meta.maxDataLength = MaxDataLength::DataLength_07;
+		header.meta.dataLength	 = header.dataLength;
+		header.dataLength		 = 0;
 	}
 
-	if (data.dataLength <= 0x07) {
-		buffer[0] += (uint8_t)data.dataLength;
-	} else if (data.dataLength <= 0xff) {
-		buffer[0] += (1 << 3);
-		buffer[length++] = (uint8_t)data.dataLength;
-	} else if (data.dataLength <= 0xffff) {
-		buffer[0] += (2 << 3);
-		length += putUint16ToBytes((uint16_t)data.dataLength, &buffer[length]);
-	} else {
-		buffer[0] += (3 << 3);
-		length += putUint24ToBytes((uint32_t)data.dataLength, &buffer[length]);
-	}
+	// header.idは変更がおきない。
+	// header.meta.maxIdLength = header.id > 0xff ? MaxIdLength::IdLength_FFFF : MaxIdLength::IdLength_FF;
 
-	if (data.dataLength == 0) return length;
+	size_t b = 0;
+	int h    = 6;
+	// meta
+	buffer[b++] = header.row[h--];
+	// id
+	if (header.row[h] != 0)
+		buffer[b++] = header.row[h--];
+	else
+		h--;
+	buffer[b++] = header.row[h--];
+
+	// data length
+	while (header.row[h] == 0) h--;
+	while (h >= 0) buffer[b++] = header.row[h--];
+
+	size_t len = header.dataLength ? header.dataLength : header.meta.dataLength;
 
 	switch (type) {
-		case TypeInteger:
-		case TypeTime:
-			switch (data.dataLength) {
-				case 1:
-					buffer[length++] = data.byteValue;
-					break;
-				case 2:
-					length += putUint16ToBytes(data.wordValue, &buffer[length]);
-					break;
-				case 4:
-					length += putUint32ToBytes(data.shortValue, &buffer[length]);
-					break;
-				case 8:
-					length += putUint64ToBytes(data.longValue, &buffer[length]);
-					break;
-			}
+		case Corelnk:
+		case String:
+		case Opaque:
+			memcpy(buffer + b, data.bytesValue.pointer, len);
 			break;
-		case TypeFloat:
-			length += putUint64ToBytes(data.floatValue, &buffer[length]);
-			break;
-		case TypeBoolean:
-			buffer[length++] = (uint8_t)data.byteValue;
-			break;
-		case TypeObjlnk:
-			length += putUint32ToBytes(data.objectInstanceLinkValue, &buffer[length]);
-			break;
-		case TypeString:
-		case TypeOpaque:
-		case TypeNone:
-			memcpy(&buffer[length], data.bytesValue, data.dataLength);
-			length += data.dataLength;
 		default:
+			revcpy(buffer + b, data.row, len);
 			break;
 	}
 
-	return length;
+	return b + len;
 }
 
-uint16_t Resource::getTLVId(const uint8_t* buffer) {
-	return buffer[0] & 0x20 ? getUint16FromBytes(&buffer[1]) : buffer[1];
-}
+size_t Resource::Deserialize(const uint8_t* buffer) { return parse(this, buffer); }
 
-int Resource::parse(const uint8_t* buffer) {
-	int index = 0;
+size_t Resource::parse(Resource* resource, const uint8_t* buffer) {
+	TLVHeader _header;
+	TLVHeader* header = resource ? &resource->header : &_header;
 
-	typeOfId = (buffer[index++] >> 6);
-	id	    = getTLVId(buffer);
-	index += buffer[0] & 0x20 ? 2 : 1;
+	size_t b = 0;
+	int h    = 6;
 
-	switch ((buffer[0] >> 3) & 0x03) {
-		case 0:
-			data.dataLength = buffer[0] & 0x07;
-			break;
-		case 1:
-			data.dataLength = buffer[index++];
-			break;
-		case 2:
-			data.dataLength = getUint16FromBytes(&buffer[index++]);
-			index += 2;
-			break;
-		case 3:
-			data.dataLength = getUint24FromBytes(&buffer[index++]);
-			index += 3;
-			break;
+	{
+		char buf[128];
+		for (int i = 0; i < 7; i++) {
+			sprintf(&buf[i * 3], "%2x ", buffer[i]);
+		}
+		_i("buffer: %s", buf);
 	}
 
-	if (data.dataLength == 0) return index;
+	header->row[h--] = buffer[b++];
 
+	// id
+	header->row[h--] = header->meta.maxIdLength == MaxIdLength::IdLength_FF ? 0 : buffer[b++];
+	header->row[h--] = buffer[b++];
+
+	// datalength
+
+	switch (header->meta.maxDataLength) {
+		case MaxDataLength::DataLength_FF:
+			header->row[h--] = 0;
+			[[fallthrough]];
+		case MaxDataLength::DataLength_FFFF:
+			header->row[h--] = 0;
+			[[fallthrough]];
+		case MaxDataLength::DataLength_FFFFFF:
+			header->row[h--] = 0;
+			break;
+		case MaxDataLength::DataLength_07:
+			header->dataLength = header->meta.dataLength;
+
+			h = -1;  // 後続のheader->detaLength格納処理をスキップさせる
+			break;
+	}
+	while (h >= 0) header->row[h--] = buffer[b++];
+
+	if (resource) {
+		switch (resource->type) {
+			case Corelnk:
+			case String:
+				resource->data.bytesValue.pointer = (void*)&buffer[b];
+				break;
+			case Opaque:
+				resource->data.bytesValue.pointer = (void*)&buffer[b];
+				resource->data.bytesValue.length  = header->dataLength;
+				break;
+			default:
+				revcpy(resource->data.row, &buffer[b], header->dataLength);
+				memset(&resource->data.row[header->dataLength], 0, TLVDATA_LENGTH - header->dataLength);
+				break;
+		}
+	}
+
+	return b + header->dataLength;
+}
+
+size_t Resource::getDataLength() {
 	switch (type) {
-		case TypeInteger:
-		case TypeTime:
-			switch (data.dataLength) {
-				case 1:
-					data.byteValue = (int8_t)buffer[index];
-					break;
-				case 2:
-					data.wordValue = (int16_t)getUint16FromBytes(&buffer[index]);
-					break;
-				case 3:
-					data.shortValue = (int32_t)getUint32FromBytes(&buffer[index]);
-					break;
-				case 4:
-					data.longValue = (int64_t)getUint64FromBytes(&buffer[index]);
-			}
-			break;
-		case TypeFloat:
-			data.floatValue = (double)(getFloat64FromBytes(&buffer[index]));
-			break;
-		case TypeBoolean:
-			data.byteValue = buffer[index];
-			break;
-		case TypeObjlnk:
-			data.objectInstanceLinkValue = getUint16FromBytes(&buffer[index]);
-			data.objectInstanceLinkValue <<= 16;
-			data.objectInstanceLinkValue += getUint16FromBytes(&buffer[index + 2]);
-			break;
-		case TypeString:
-		case TypeOpaque:
-		case TypeNone:
-			memcpy(data.bytesValue, &buffer[index], data.dataLength);
-			break;
+		case Time:
+			// Same Integer
+		case Integer:
+		case Unsigned:
+			return 4;
+			// Integerは1, 2, 4, 8byteのいずれかとあるが、SORACOMでは1, 2, 8byte長を許容していない
+			// if (*((uint32_t *)&row[4]) != 0x00000000) return 8;
+			// if (*((uint16_t *)&row[2]) != 0x0000) return 4;
+			// if (*((uint8_t *)&row[1]) != 0x00) return 2;
+			// return 1;
+		case Float:
+			// SORACOMでは4byteを許容していない（）要調査
+			return 8;
+		case Boolean:
+			return 1;
+		case Objlnk:
+			return 4;
+		case Corelnk:
+			// Same String
+		case String:
+			if (!data.bytesValue.pointer) return 0;
+			return strlen((const char*)data.bytesValue.pointer);
+		case Opaque:
+			if (!data.bytesValue.pointer) return 0;
+			return data.bytesValue.length;
+		case none:
+			return 0;
 	}
-
-	return index + data.dataLength;
+	return 0;	 // Error
 }
 
-int Resource::calculateParseLength(const uint8_t* buffer) {
-	int index = 0;
+void Resource::read() { callback(Read, &data); }
 
-	index += buffer[0] & 0x20 ? 2 : 1;
-
-	int dataLength = 0;
-	switch ((buffer[0] >> 3) & 0x03) {
-		case 0:
-			dataLength = buffer[0] & 0x07;
-			break;
-		case 1:
-			dataLength = buffer[index++];
-			break;
-		case 2:
-			dataLength = getUint16FromBytes(&buffer[index++]);
-			index += 2;
-			break;
-		case 3:
-			dataLength = getUint24FromBytes(&buffer[index++]);
-			index += 3;
-			break;
-	}
-
-	return index + dataLength;
-}
-
-void Resource::read() { callback(Read, &data, data.dataLength); }
-
-void Resource::update() { callback(Write, &data, data.dataLength); }
+void Resource::update() { callback(Write, &data); }
 
 void Resource::execute(const uint8_t* args, int length) {
-	TLVData data;
-	data.bytesValue = (uint8_t*)malloc(length + 1);
-	memcpy(data.bytesValue, args, length);
-	data.bytesValue[length] = '\0';
-	callback(Execute, &data, length);
-	free(data.bytesValue);
+	TLVData data = this->data;
+	callback(Execute, &data);
 }

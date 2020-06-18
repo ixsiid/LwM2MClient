@@ -16,14 +16,15 @@ namespace LwM2M {
 class LwM2MInstance {
     protected:
 	LwM2MInstance(int objectId, int instanceId);
-	void addResource(int resourceId, Operations operation, ResourceType type);
+	void addResource(int resourceId, Operations operation, Type type);
 
     private:
 	List* resources;  // <TLV *>
 	uint16_t objectId, instanceId;
 
     public:
-	void registCallback(int resourceId, std::function<void(Operations operation, TLVData* tlv, int dataLength)> callback);
+	void registCallback(int resourceId, ResourceCallback callback);
+	void setFixResource(int resourceId, TLVData *data);
 
 	int read(int resourceId, uint8_t* buffer);
 	int readAll(uint8_t* buffer);

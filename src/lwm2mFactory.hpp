@@ -21,7 +21,9 @@ class LwM2MFactory {
 	LwM2MFactory& Bootstrap(const char* host, int port);
 	LwM2MFactory& SetSecurityPram(const char* identity, const uint8_t* psk);
 	LwM2MFactory& AddInstance(LwM2MInstance* instance);
-	LwM2MFactory& AddResource(int resourceId, std::function<void(Operations operation, TLVData* tlv, int dataLength)> callback);
+	LwM2MFactory& AddResource(int resourceId, ResourceCallback callback);
+	LwM2MFactory& AddFixResource(int resourceId, uint8_t* data, size_t length = 0);
+	LwM2MFactory& AddFixResource(int resourceId, int64_t data);
 	LwM2MClient* Regist(const char* host, int port);
 
     private:
