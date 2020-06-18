@@ -64,7 +64,7 @@ LwM2MFactory& LwM2MFactory::AddResource(int resourceId, ResourceCallback callbac
 LwM2MFactory& LwM2MFactory::AddFixResource(int resourceId, uint8_t* data, size_t length) {
 	TLVData d;
 	d.bytesValue.pointer = data;
-	d.bytesValue.length	 = length ? length : strlen((const char *)data);
+	d.bytesValue.length	 = length;
 	currentInstance->setFixResource(resourceId, &d);
 	return *this;
 }

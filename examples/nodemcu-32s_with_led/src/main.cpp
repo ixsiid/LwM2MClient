@@ -66,7 +66,7 @@ void app_main() {
 
 						// 続けて登録するインスタンスを追加する
 						.AddInstance(new DeviceInstance(0))  // Object ID: 3
-						.AddFixResource(2, (uint8_t *)"LwM2MClient Factory")
+						.AddFixResource(2, "LwM2MClient Factory")
 						.AddFixResource(10, a / 1024)
 						.AddResource(4, [](Operations operation, TLVData *tlv) {
 							_i("Execute parameter: %s", (const char *)tlv->row);

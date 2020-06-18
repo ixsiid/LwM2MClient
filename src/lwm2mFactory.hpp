@@ -22,7 +22,8 @@ class LwM2MFactory {
 	LwM2MFactory& SetSecurityPram(const char* identity, const uint8_t* psk);
 	LwM2MFactory& AddInstance(LwM2MInstance* instance);
 	LwM2MFactory& AddResource(int resourceId, ResourceCallback callback);
-	LwM2MFactory& AddFixResource(int resourceId, uint8_t* data, size_t length = 0);
+	LwM2MFactory& AddFixResource(int resourceId, char * data);
+	LwM2MFactory& AddFixResource(int resourceId, uint8_t* data, size_t length);
 	LwM2MFactory& AddFixResource(int resourceId, int64_t data);
 	LwM2MClient* Regist(const char* host, int port);
 
@@ -46,6 +47,11 @@ class LwM2MFactory {
 
 	LwM2MInstance* currentInstance;
 };
+
+inline LwM2MFactory::AddFixResource(int resourceId, char * data) {
+	AddFixResource(resourceId, (uint8_t *)data, strlen(data));
+}
+
 }  // namespace LwM2M
 
 #endif  // __LWM2M_FACTORY_H
