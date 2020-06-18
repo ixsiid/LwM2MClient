@@ -36,12 +36,10 @@ long LwM2MInstance::getId() { return getId(objectId, instanceId); }
 int LwM2MInstance::readAll(uint8_t* buffer) {
 	int length = 0;
 	resources->all([&](long id, void* data) {
-	_i("read %ld", id);
 		Resource* target = (Resource*)data;
 		if (target->isRead()) {
 			target->read();
 			length += target->Serialize(&buffer[length]);
-			_i("length: %d", length);
 		}
 	});
 	return length;
