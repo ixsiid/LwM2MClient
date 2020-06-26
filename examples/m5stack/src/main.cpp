@@ -128,8 +128,7 @@ void app_main() {
 	xTaskCreatePinnedToCore([](void *lwm2m) {
 		_i("Run LwM2M event loop on Core %d", xPortGetCoreID());
 		while (true) ((LwM2MClient *)lwm2m)->CheckEvent();
-	},
-					    "EventLoop", 8192, lwm2m, 1, NULL, 0);
+	}, "EventLoop", 8192, lwm2m, 1, NULL, 0);
 
 	// 周期Notifyループ
 	xTaskCreatePinnedToCore([](void *lwm2m_p) {
@@ -143,7 +142,6 @@ void app_main() {
 
 			// 20秒以上経過していたらNotifyを送る
 			uint32_t now = esp_timer_get_time();
-			char buf[256];
 			if (now - lastNotified > 20000000) {
 				lastNotified = now;
 				lwm2m->Notify(3311, 0, 5852);
@@ -152,17 +150,11 @@ void app_main() {
 				lwm2m->Notify(3322, 2, 5700);
 				lwm2m->Notify(3322, 3, 5700);
 
-//				sprintf(buf, R"([{"n":"/3322/1/5700","v":%f},{"n":"/3322/2/5700","v":%f},{"n":"/3322/3/5700","v":%f}])", values[0], values[1], values[0] + values[1]);
-//				_i("send %s", buf);
-
-//				lwm2m->Send(buf);
-
 				values[0] += 0.24351f;
 				values[1] += 0.5312f;
 			}
 		}
-	},
-					    "Notify", 4096, lwm2m, 1, NULL, 1);
+	}, "Notify", 4096, lwm2m, 1, NULL, 1);
 
 	xTaskCreatePinnedToCore([](void *lcd_p) {
 		ILI9341 *lcd = (ILI9341 *)lcd_p;
@@ -180,6 +172,5 @@ void app_main() {
 			lcd->drawString(2, 60, WHITE, buf);
 			lcd->update();
 		}
-	},
-					    "LCDUpdate", 4096, lcd, 1, NULL, 1);
+	}, "LCDUpdate", 4096, lcd, 1, NULL, 1);
 }

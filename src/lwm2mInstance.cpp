@@ -60,9 +60,7 @@ void LwM2MInstance::declareResource(int resourceId, Operations operation, DataTy
 		res->mandatory = true;
 
 		if (multiple) {
-			List* values = new List();
-			values->add(resourceId, value);
-			res->resource = new TLVMulti(resourceId, type, values);
+			res->resource = new TLVMulti(resourceId, type, value);
 		} else {
 			res->resource = new TLVSingle(resourceId, type, value);
 		}

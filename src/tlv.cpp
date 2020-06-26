@@ -74,11 +74,37 @@ size_t TLV::Serialize(uint8_t* buffer) {
 		header.meta.resourceType = ResourceType::ResouceInstance;
 		header.id				= 0;
 		header.meta.maxIdLength	= MaxIdLength::IdLength_FF;
+		_i("%p", data.bytesValue.pointer);
 		((List*)data.bytesValue.pointer)->all([&](long id, void* _data) {
 			// header.meta.maxIdLength = header.id <= 0xff ? MaxIdLength::IdLength_FF : MaxIdLength::IdLength_FFFF;
-			data = *(TLVData*)_data;
+			memset(&data, 0, sizeof(TLVData));
+			switch (type) {
+				case Boolean:
+				case Integer8:
+					data.int8Value = (int8_t)(int32_t)_data;
+					break;
+				case Objlnk:
+					// data.linkValue = (link_t)_data;
+					// break;
+				case Float:
+					// data.floatValue = (float)_data;
+					// break;
+				case Integer:
+				case Unsigned:
+				case Time:
+					data.int32Value = (int32_t)_data;
+					break;
+				case Corelnk:
+				case String:
+					data.textValue = (char*)_data;
+					break;
+				case Opaque:
+					data.bytesValue = *(pointer_t*)_data;
+					break;
+				case none:
+					break;
+			}
 			t += Serialize(buffer + b + t);
-			_i("Item %d", header.id);
 			header.id++;
 		});
 
@@ -97,13 +123,6 @@ size_t TLV::Serialize(uint8_t* buffer) {
 			default:
 				revcpy(buffer + b, data.raw, len);
 				break;
-		}
-
-		if (header.meta.resourceType == ResourceType::ResouceInstance) {
-			buffer[b + 0] = 0;
-			buffer[b + 1] = 0;
-			buffer[b + 2] = 0;
-			buffer[b + 3] = 0;
 		}
 	}
 

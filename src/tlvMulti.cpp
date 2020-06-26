@@ -2,7 +2,13 @@
 
 using namespace LwM2M;
 
+#define LOG_LOCAL_LEVEL 3
+#define TAG "TLV Multi"
+#include "log.h"
+
 TLVMulti::TLVMulti(uint16_t id, DataType type, void* value) : TLV(id, type, ResourceType::MultipleResouce) {
+	_i("Multi initialize %p", value);
+	_i("insted %p", (value ? (List *)value : new List()));
 	data.bytesValue.pointer = list = (value ? (List *)value : new List());
 }
 
