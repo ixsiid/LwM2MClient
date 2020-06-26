@@ -46,7 +46,7 @@ Dtls::Dtls(ip4_addr_t *ip, const char *host, int port) {
 	udp	    = new UDP(ip, host, port);
 }
 
-bool Dtls::handshaking(const char *identity, uint8_t *psk) {
+bool Dtls::handshaking(const char *identity, const uint8_t *psk) {
 	handshake.messageLen	= 0;
 	handshake.serverSequence = 0;
 	handshake.clientSequence = 0;

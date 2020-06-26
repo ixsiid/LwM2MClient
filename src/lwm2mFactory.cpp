@@ -53,7 +53,7 @@ LwM2MFactory& LwM2MFactory::SetSecurityPram(const char* identity, const uint8_t*
 
 LwM2MFactory& LwM2MFactory::AddInstance(LwM2MInstance* instance) {
 	void* existInstance = instances->add(instance->getId(), instance);
-	if (existInstance) {
+	if (existInstance && existInstance != instance) {
 		long id = instance->getId();
 		_i("Exist instance /%u/%u", (uint16_t)id >> 16, (uint16_t)id & 0xffff);
 		free(existInstance);
@@ -63,11 +63,18 @@ LwM2MFactory& LwM2MFactory::AddInstance(LwM2MInstance* instance) {
 	return *this;
 }
 
-LwM2MFactory& LwM2MFactory::AddResource(int resourceId, ResourceCallback callback) {
-	currentInstance->registCallback(resourceId, callback);
+LwM2MFactory& LwM2MFactory::AddResource(int resourceId, TLVCallback callback) {
+	currentInstance->addResource(resourceId, callback);
 	return *this;
 }
 
+
+LwM2MFactory& LwM2MFactory::AddResource(int resourceId, void * value) {
+	currentInstance->addResource(resourceId, value);
+	return *this;
+}
+
+/*
 LwM2MFactory& LwM2MFactory::AddFixResource(int resourceId, uint8_t* data, size_t length) {
 	TLVData d;
 	d.bytesValue.pointer = data;
@@ -82,6 +89,7 @@ LwM2MFactory& LwM2MFactory::AddFixResource(int resourceId, int64_t data) {
 	currentInstance->setFixResource(resourceId, &d);
 	return *this;
 }
+*/
 
 LwM2MClient* LwM2MFactory::Regist(const char* host, int port) {
 	if (!isIpConfigured) return nullptr;

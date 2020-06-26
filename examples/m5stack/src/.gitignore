@@ -1,2 +1,2 @@
-wifi_credential.h
-lwm2m_credential.h
+wifi_credential.hpp
+lwm2m_credential.hpp

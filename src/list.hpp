@@ -1,5 +1,4 @@
-#ifndef __ARRAY_BUFFER_H
-#define __ARRAY_BUFFER_H
+#pragma once
 
 #include <functional>
 
@@ -19,6 +18,11 @@ class List {
 	/// 返り値: 既にIDが存在したらデータのポインタ
 	///                存在しない場合、nullptr
 	void *find(long id);
+
+	/// リストの最初のデータを返します。
+	/// 返り値: 既にIDが存在したらデータのポインタ
+	///                存在しない場合、nullptr
+	void *first();
 
 	/// コールバック関数によってマッチしたアイテムを除去します。
 	/// 除去されるのは最初の1つだけです。
@@ -43,9 +47,16 @@ class List {
 	/// long id: コールバック関数
 	void all(std::function<void(long id, void *data)> callback);
 
+	size_t count();
+
+	void clear();
+
     private:
 	Item *list;
+	size_t _count;
 };
+
+inline size_t List::count() { return _count; }
+
 }  // namespace LwM2M
 
-#endif  // __ARRAY_BUFFER_H

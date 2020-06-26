@@ -1,6 +1,5 @@
 #include "lwm2mClient.hpp"
 
-#include "endian.hpp"
 #include "lwm2mInstance.hpp"
 #include "objects/0_Security.hpp"
 
@@ -17,7 +16,7 @@ LwM2MClient::LwM2MClient(const char *endpoint, uint16_t lifetime, List *instance
 	registered  = false;
 	bootstraped = false;
 
-	dtls	 = new Dtls(ip, dstHost, port);
+	dtls = new Dtls(ip, dstHost, port);
 	coap = new CoapPacket();
 
 	this->instances = instances;
@@ -63,12 +62,6 @@ bool LwM2MClient::Bootstrap(const char *bootstrapHost, int bootstrapPort) {
 
 	LwM2MInstance *securityInstance = new LwM2MObject::SecurityInstance();
 	instances->add(0, securityInstance);
-	securityInstance->registCallback(3, [&](Operations operation, TLVData *tlv) {
-		strncpy(this->identity, (const char *)tlv->bytesValue.pointer, 32);
-	});
-	securityInstance->registCallback(5, [&](Operations operation, TLVData *tlv) {
-		strncpy((char *)this->psk, (const char *)tlv->bytesValue.pointer, 16);
-	});
 
 	return Bootstrap();
 }
@@ -93,6 +86,9 @@ bool LwM2MClient::Bootstrap() {
 		return false;
 	}
 
+	((LwM2MObject::SecurityInstance *)instances->find(0))->getIdentity(identity)->getPsk((char *)psk);
+	_i("%s, %s", identity, psk);
+
 	_i("LwM2M: finish bootstrap");
 	return true;
 }
@@ -100,7 +96,7 @@ bool LwM2MClient::Bootstrap() {
 bool LwM2MClient::CheckEvent() {
 	if (!dtls->isVerified()) {
 		_i("LwM2M: dtls not verified");
-		if (dtls->handshaking(identity, psk)) {
+		if (dtls->handshaking(this->identity, this->psk)) {
 			updatedTimestamp = 0;
 
 			location[0]  = '\0';
@@ -136,19 +132,24 @@ void LwM2MClient::ReadResource(uint16_t objectId, uint16_t instanceId, uint16_t 
 	options.format = 0x2d16;
 
 	Coap::Code result = Coap::Code::NotFound;
-
-	int readLength = 0;
+	size_t readLength = 0;
 
 	LwM2MInstance *instance = (LwM2MInstance *)instances->find(LwM2MInstance::getId(objectId, instanceId));
 	if (instance) {
 		if (resourceId == 0xffff) {
-			readLength = instance->readAll(readOperationBuffer);
+			result = instance->readAll(readOperationBuffer, &readLength);
+			if (readLength > 0) result = Coap::Code::Content;
 		} else {
-			readLength = instance->read(resourceId, readOperationBuffer);
+			result = instance->read(resourceId, readOperationBuffer, &readLength);
 		}
-
-		if (readLength >= 0) result = Coap::Code::Content;
 	}
+
+	char b[256];
+	for (int i = 0; i < readLength; i++) {
+		sprintf(b + i * 3, "%2x ", readOperationBuffer[i]);
+	}
+	_i("Payload: %p, %d", readOperationBuffer, readLength);
+	_i("%s", b);
 
 	coap->Response(Coap::Type::Acknowledgement, result)
 	    ->Option(&options)
@@ -263,6 +264,8 @@ bool LwM2MClient::Notify(uint16_t objectId, uint16_t instanceId, uint16_t resour
 	if (!observe) {
 		_i("No observed");
 		return false;
+	} else {
+		_i("token: %lld, counter: %d, message id: %d", *((uint64_t *)observe->token), observe->counter, observe->messageId);
 	}
 
 	LwM2MInstance *instance = (LwM2MInstance *)instances->find(LwM2MInstance::getId(objectId, instanceId));
@@ -271,8 +274,8 @@ bool LwM2MClient::Notify(uint16_t objectId, uint16_t instanceId, uint16_t resour
 		return false;
 	}
 
-	int readLength = instance->read(resourceId, readOperationBuffer);
-	if (readLength < 0) {
+	size_t readLength = 0;
+	if (instance->read(resourceId, readOperationBuffer, &readLength) != Coap::Code::Content) {
 		_i("Read error %d", -readLength);
 		return false;
 	}
@@ -286,6 +289,17 @@ bool LwM2MClient::Notify(uint16_t objectId, uint16_t instanceId, uint16_t resour
 	coap->Request(Coap::Type::NonConfirmable, Coap::Code::Content, observe->token)
 	    ->Option(&options)
 	    ->Payload(readOperationBuffer, readLength)
+	    ->send(dtls);
+	return true;
+}
+
+bool LwM2MClient::Send(const char *json) {
+	Coap::Option options;
+	options.format = 0x6e;  //2d17; // json (SenML JSON 0x6e)
+
+	coap->Request(Coap::Type::NonConfirmable, Coap::Code::Content)
+	    ->Option(&options)
+	    ->Payload((const uint8_t *)json, strlen(json))
 	    ->send(dtls);
 	return true;
 }
@@ -306,7 +320,7 @@ void LwM2MClient::CoapProcess(IConnection *connection, std::function<void()> tim
 	Coap::Option option;
 
 	size_t n;
-	uint16_t objectId   = 0xffff;
+	uint16_t objectId	= 0xffff;
 	uint16_t instanceId = 0xffff;
 	uint16_t resourceId = 0xffff;
 
@@ -373,8 +387,14 @@ void LwM2MClient::CoapProcess(IConnection *connection, std::function<void()> tim
 						memcpy(observe->token, coap->getToken(), CoapPacket::TokenLength);
 
 						// Published Observesに登録。古いデータが存在する場合削除。
-						observe = (Observe *)observes->add(convertObserveId(objectId, instanceId, resourceId), observe);
-						if (observe) free(observe);
+						long id = convertObserveId(objectId, instanceId, resourceId);
+						_i("Observe request [%ld] /%u/%u/%u, token: %llx MID: %u", id, objectId, instanceId, resourceId, *((uint64_t *)observe->token), observe->messageId);
+
+						observe = (Observe *)observes->add(id, observe);
+						if (observe) {
+							_i("Delete old observe [%ld] token: %llx", id, *((uint64_t *)observe->token));
+							free(observe);
+						}
 					}
 					ReadResource(objectId, instanceId, resourceId);
 					break;

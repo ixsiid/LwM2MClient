@@ -7,7 +7,7 @@
 #include "dtls.hpp"
 #include "list.hpp"
 #include "udp.hpp"
-#include "lwm2mResource.hpp"
+//#include "lwm2mInstance.hpp"
 
 namespace LwM2M {
 
@@ -25,7 +25,7 @@ class LwM2MClient {
 	void SkipBootstrap(const char *identity, uint8_t *psk);
 	bool CheckEvent();
 	bool Notify(uint16_t objectId, uint16_t instanceId, uint16_t resourceId);
-	TLVData *getTLVData(uint16_t objectId, uint16_t instanceId, uint16_t resourceId);
+	bool Send(const char *json);
 
     private:
 	bool Register();
@@ -63,7 +63,7 @@ class LwM2MClient {
 	char registerInstances[256];
 	size_t registerInstancesLength;
 
-	static const size_t ReadOperationBufferSize = 256;
+	static const size_t ReadOperationBufferSize = 512;
 	static uint8_t readOperationBuffer[];
 	static long convertObserveId(uint16_t objectId, uint16_t instanceId, uint16_t resourceId);
 };

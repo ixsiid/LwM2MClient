@@ -10,14 +10,14 @@ class LightControlInstance : public LwM2MInstance {
 };
 LightControlInstance::LightControlInstance(int instanceId) : LwM2MInstance(3311, instanceId) {
 	// Object ID = 3311
-	this->addResource(5850, ReadWrite, Type::Boolean);  // On/Off
-	this->addResource(5851, ReadWrite, Type::Integer);  // Dimmer
-	this->addResource(5852, ReadWrite, Type::Integer);  // On time
-	this->addResource(5805, Read, Type::Float);		  // Cumulative active power
-	this->addResource(5820, Read, Type::Float);		  // Power factor
-	this->addResource(5706, ReadWrite, Type::String);	  // Colour
-	this->addResource(5701, Read, Type::String);		  // Sensor Units
-//	this->addResource(5750, ReadWrite, Type::String);	  // Application Type
+	this->declareResource(5850, ReadWrite, DataType::Boolean, false, (void*)false);	 // On/Off
+	this->declareResource(5851, ReadWrite, DataType::Integer, false);			 // Dimmer
+	this->declareResource(5852, ReadWrite, DataType::Integer, false);			 // On time
+	this->declareResource(5805, Read, DataType::Float, false);					 // Cumulative active power
+	this->declareResource(5820, Read, DataType::Float, false);					 // Power factor
+	this->declareResource(5706, ReadWrite, DataType::String, false);				 // Colour
+	this->declareResource(5701, Read, DataType::String, false);					 // Sensor Units
+	this->declareResource(5750, ReadWrite, DataType::String, false);				 // Application Type
 }
 
 }  // namespace LwM2MObject

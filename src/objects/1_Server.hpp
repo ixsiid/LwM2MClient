@@ -1,3 +1,4 @@
+/*
 #pragma once
 
 #include "lwm2mInstance.hpp"
@@ -5,28 +6,22 @@
 namespace LwM2MObject {
 using namespace LwM2M;
 // SecurityInstance は /0/0 しか存在しない
-class SecurityInstance : public LwM2MInstance {
+class ServerInstance : public LwM2MInstance {
     public:
-	SecurityInstance();
-
-	SecurityInstance *getIdentity(char *buffer);
-	SecurityInstance *getPsk(char *buffer);
-
-    private:
-	char identity[32];
-	char psk[16];
+	ServerInstance(bool sendOperation);
 };
 
-inline SecurityInstance *SecurityInstance::getIdentity(char *buffer) {
-	strncpy(buffer, identity, 32);
-	return this;
-}
-inline SecurityInstance *SecurityInstance::getPsk(char *buffer) {
-	memcpy(buffer, psk, 16);
-	return this;
-}
+ServerInstance::ServerInstance(bool sendOperation) : LwM2MInstance(1, 1) {
+	this->declareResource(0, Operations::Read, DataType::Integer, false, (void *)1);		 // Short Server ID
+	this->declareResource(1, Operations::ReadWrite, DataType::Integer, false, (void *)120);	 // Lifetime
+	this->declareResource(2, Operations::ReadWrite, DataType::Integer, false);	 // Default Minimum Period
+	this->declareResource(3, Operations::ReadWrite, DataType::Integer, false);	 // Default Maximum Period
+	this->declareResource(4, Operations::Execute, DataType::none, false);		 // Disable
+	this->declareResource(5, Operations::ReadWrite, DataType::Integer, false);	 // Disable Timeout
+	this->declareResource(6, Operations::ReadWrite, DataType::Boolean, false);	 // Notification Storing When Disabled or Offline
+	this->declareResource(7, Operations::ReadWrite, DataType::String, false);	 // Binding
+	this->declareResource(8, Operations::Execute, DataType::none, false);		 // Registration Update Trigger
 
-SecurityInstance::SecurityInstance() : LwM2MInstance(0, 1) {
 	this->declareResource(0, Operations::None, DataType::String, false);
 	this->declareResource(1, Operations::None, DataType::Boolean, false);
 	this->declareResource(2, Operations::None, DataType::Integer, false);
@@ -52,3 +47,8 @@ SecurityInstance::SecurityInstance() : LwM2MInstance(0, 1) {
 }
 
 }  // namespace LwM2MObject
+
+const static Lwm2mResource serverResources[] = {
+    // Object ID = 1
+};
+*/

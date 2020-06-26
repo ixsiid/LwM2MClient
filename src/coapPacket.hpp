@@ -158,7 +158,7 @@ class CoapPacket {
 	static const size_t TokenLength = 8;
 
     private:
-	static const size_t BufferLength = 4096;
+	static const size_t BufferLength = 2048;
 
 	IConnection* connection;
 	uint8_t buffer[BufferLength];

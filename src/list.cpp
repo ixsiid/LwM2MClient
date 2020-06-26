@@ -10,6 +10,8 @@ List::List() {
 	list->id	 = -1;
 	list->next = nullptr;
 	list->data = nullptr;
+
+	_count = 0;
 }
 
 void *List::find(long id) {
@@ -21,6 +23,10 @@ void *List::find(long id) {
 	return nullptr;
 }
 
+void *List::first() {
+	return list->next ? ((Item *)list->next)->data : nullptr;
+}
+
 void *List::removeAt(std::function<bool(void *data)> callback) {
 	Item *prev    = list;
 	Item *current = (Item *)list->next;
@@ -29,6 +35,7 @@ void *List::removeAt(std::function<bool(void *data)> callback) {
 			void *data = current->data;
 			prev->next = current->next;
 			free(current);
+			_count--;
 			return data;
 		}
 		current = (Item *)current->next;
@@ -51,6 +58,8 @@ void *List::add(long id, void *data) {
 	x->next	    = nullptr;
 	x->data	    = data;
 	current->next = x;
+
+	_count++;
 	return nullptr;
 }
 
@@ -62,6 +71,7 @@ void *List::remove(long id) {
 			void *removeData = removeItem->data;
 			current->next	  = removeItem->next;
 			free(removeItem);
+			_count--;
 			return removeData;
 		}
 		current = (Item *)current->next;
@@ -75,4 +85,18 @@ void List::all(std::function<void(long id, void *data)> callback) {
 		callback(current->id, current->data);
 		current = (Item *)current->next;
 	}
+}
+
+void List::clear() {
+	Item *current = (Item *)list->next;
+	while (current != nullptr) {
+		Item *next = (Item *)current->next;
+		free(current);
+		free(current->data);
+		current = next;
+	}
+
+	list->id	 = -1;
+	list->next = nullptr;
+	list->data = nullptr;
 }

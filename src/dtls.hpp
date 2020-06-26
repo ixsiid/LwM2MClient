@@ -25,7 +25,7 @@ typedef struct {
 class Dtls : public IConnection {
     public:
 	Dtls(ip4_addr_t *ip, const char *host, int port);
-	bool handshaking(const char *identity, uint8_t *psk);
+	bool handshaking(const char *identity, const uint8_t *psk);
 	bool isVerified();
 
 	bool send(const uint8_t *data, uint16_t length) override;

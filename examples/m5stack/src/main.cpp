@@ -3,14 +3,16 @@
 #include <freertos/FreeRTOS.h>
 #include <stdio.h>
 
+#include <Button.hpp>
+#include <ili9341.hpp>
+#include <lwm2mFactory.hpp>
+#include <objects/3311_LightControl.hpp>
+#include <objects/3322_Load.hpp>
+#include <objects/3_Device.hpp>
 #include <wifiManager.hpp>
 
-#include "wifi_credential.h"
-#include "lwm2m_credential.h"
-
-#include <lwm2mFactory.hpp>
-#include <objects/3_Device.hpp>
-#include <objects/3322_Load.hpp>
+#include "lwm2m_credential.hpp"
+#include "wifi_credential.hpp"
 
 #define TAG "LwM2M Client"
 #include "log.h"
@@ -18,23 +20,31 @@
 using namespace LwM2M;
 using namespace LwM2MObject;
 
+using namespace LCD;
+
 extern "C" {
 void app_main();
 }
 
-
 static const size_t scaleCount = 2;
+static float values[scaleCount];
 
-static double values[scaleCount];
-static double sum;
+static DeviceInstance *device;
 
 void app_main() {
 	_i("Start LwM2MClient");
 
+	size_t a = esp_get_free_heap_size();
+
+	ILI9341 *lcd = new ILI9341();
+
+	size_t _lcd_a = esp_get_free_heap_size();
+	_i("heap: %d -> %d (%d)", a, _lcd_a, _lcd_a - a);
+
 	WiFi::Connect(SSID, PASSWORD);
 	_i("IP: %s", inet_ntoa(*WiFi::getIp()));
 
-	size_t a = esp_get_free_heap_size();
+	size_t _wifi_a = esp_get_free_heap_size();
 
 	int64_t time = esp_timer_get_time();
 	_i("%llx", (uint64_t)time);
@@ -48,47 +58,79 @@ void app_main() {
 						.SetSecurityPram(DEVICE_KEY, (const uint8_t *)DEVICE_SECRET)
 
 						// 続けて登録するインスタンスを追加する
-						.AddInstance(new DeviceInstance(0))  // Object ID: 3
-						.AddFixResource(2, "LwM2MClient Factory")
-						.AddFixResource(10, a / 1024)
+						.AddInstance(device = new DeviceInstance())	// Object ID: 3, Instance ID: 0
+						.AddResource(0, (void *)"Kyocera Corp")
+						.AddResource(1, (void *)"LwM2M client test")
+						.AddResource(2, (void *)"1235.4312U-41TV")
 						.AddResource(4, [](Operations operation, TLVData *tlv) {
 							_i("Execute parameter: %s", (const char *)tlv->raw);
 							esp_restart();
+							return true;
 						})
+						.AddResource(10, [=](Operations operation, TLVData *tlv) {
+							tlv->int32Value = esp_get_free_heap_size() / 1024;
+							return true;
+						})
+
+
+						.AddInstance(new LoadInstance(1))
+						.AddResource(5700, [](Operations operation, TLVData *tlv) {
+							tlv->floatValue = values[0];
+							return true;
+						})
+						.AddResource(5701, (void *)"12345678")
+						.AddResource(5750, (void *)"Load Cell 1")
+
+						.AddInstance(new LoadInstance(2))
+						.AddResource(5700, [](Operations operation, TLVData *tlv) {
+							tlv->floatValue = values[1];
+							return true;
+						})
+						.AddResource(5701, (void *)"87654321")
+						.AddResource(5750, (void *)"Load Cell 2")
 
 						.AddInstance(new LoadInstance(3))
 						.AddResource(5700, [](Operations operation, TLVData *tlv) {
-							if (operation == Read) {
-								tlv->floatValue = sum;
-							}
+							tlv->floatValue = values[0] + values[1];
+							return true;
 						})
-						.AddInstance(new LoadInstance(1))
-						.AddResource(5700, [&](Operations operation, TLVData *tlv) {
-							if (operation == Read) {
-								tlv->floatValue = values[0];
-							}
-						})
+						.AddResource(5701, (void *)"1234")
+						.AddResource(5750, (void *)"Load Cell Sum")
 
-						.AddInstance(new LoadInstance(2))
-						.AddResource(5700, [&](Operations operation, TLVData *tlv) {
-							if (operation == Read) {
-								tlv->floatValue = values[1];
+
+						.AddInstance(new LightControlInstance(0))
+						.AddResource(5852, [&](Operations operation, TLVData *tlv) {
+							if (operation == Operations::Read) {
+								tlv->int32Value = (esp_timer_get_time() - time) / 1000000;
+								return true;
+							} else if (operation == Operations::Write) {
+								if (tlv->int32Value == 0) time = esp_timer_get_time();
+								return true;
 							}
+							return false;
 						})
+						.AddResource(5701, (void *)"lux")
 
 						.Regist(LWM2M_HOST, 5684);
 
-	size_t b = esp_get_free_heap_size();
+	device->addError(Error::LowBattery);
+	device->addError(Error::GPSFailure);
+	device->addError(Error::OutOfMemory);
 
-	_i("Heap %d -> %d (%d)", a, b, b - a);
+	values[0] = values[1] = 0;
+	time = esp_timer_get_time();
+
+	size_t _lwm2m_a = esp_get_free_heap_size();
+
+	_i("Heap %d -> %d (%d)", _wifi_a, _lwm2m_a, _lwm2m_a - _wifi_a);
 
 	_i("LwM2M Client initialized: %p", lwm2m);
 	xTaskCreatePinnedToCore([](void *lwm2m) {
 		_i("Run LwM2M event loop on Core %d", xPortGetCoreID());
 		while (true) ((LwM2MClient *)lwm2m)->CheckEvent();
-	}, "EventLoop", 4096, lwm2m, 1, NULL, 0);
+	},
+					    "EventLoop", 8192, lwm2m, 1, NULL, 0);
 
-	/*
 	// 周期Notifyループ
 	xTaskCreatePinnedToCore([](void *lwm2m_p) {
 		_i("Notify management on %d", xPortGetCoreID());
@@ -101,12 +143,43 @@ void app_main() {
 
 			// 20秒以上経過していたらNotifyを送る
 			uint32_t now = esp_timer_get_time();
+			char buf[256];
 			if (now - lastNotified > 20000000) {
 				lastNotified = now;
-				((LwM2MClient *)lwm2m)->Notify(3311, 0, 5852);
-				((LwM2MClient *)lwm2m)->Notify(3311, 5, 5852);
+				lwm2m->Notify(3311, 0, 5852);
+
+				lwm2m->Notify(3322, 1, 5700);
+				lwm2m->Notify(3322, 2, 5700);
+				lwm2m->Notify(3322, 3, 5700);
+
+//				sprintf(buf, R"([{"n":"/3322/1/5700","v":%f},{"n":"/3322/2/5700","v":%f},{"n":"/3322/3/5700","v":%f}])", values[0], values[1], values[0] + values[1]);
+//				_i("send %s", buf);
+
+//				lwm2m->Send(buf);
+
+				values[0] += 0.24351f;
+				values[1] += 0.5312f;
 			}
 		}
-	}, "Notify", 4096, lwm2m, 1, NULL, 1);
-	*/
+	},
+					    "Notify", 4096, lwm2m, 1, NULL, 1);
+
+	xTaskCreatePinnedToCore([](void *lcd_p) {
+		ILI9341 *lcd = (ILI9341 *)lcd_p;
+		char buf[64];
+
+		while (true) {
+			vTaskDelay(300 / portTICK_PERIOD_MS);
+
+			lcd->clear(BLACK);
+			sprintf(buf, "%lf", values[0]);
+			lcd->drawString(2, 10, WHITE, buf);
+			sprintf(buf, "%lf", values[1]);
+			lcd->drawString(2, 30, WHITE, buf);
+			sprintf(buf, "%lf", values[0] + values[1]);
+			lcd->drawString(2, 60, WHITE, buf);
+			lcd->update();
+		}
+	},
+					    "LCDUpdate", 4096, lcd, 1, NULL, 1);
 }
