@@ -4,6 +4,9 @@
 #include "endian.hpp"
 #include "sha256.hpp"
 
+#define TAG "DTLS"
+#include "log.h"
+
 using namespace LwM2M;
 
 const static uint16_t DTLSVersion12	 = 0xfefd;
@@ -75,18 +78,26 @@ bool Dtls::handshaking(const char *identity, const uint8_t *psk) {
 	}
 
 	verified = getCookie();
-	if (!verified) return false;
+	if (!verified) {
+		_i("COOKIE");
+		return false;
+	}
 
 	verified = getSession();
-	if (!verified) return false;
+	if (!verified) {
+		_i("SESSION");
+		return false;
+	}
 
 	sendClientKeyExchange();
 	sendChangeCipherSpec();
 	generateSecurityParams();
 	if (sendFinished()) {
+		_i("VERIFIED");
 		verified = true;
 		return true;
 	} else {
+		_i("NOT VERIFIED");
 		verified = false;
 		return false;
 	}

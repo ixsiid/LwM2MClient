@@ -23,9 +23,6 @@ class LwM2MFactory {
 	LwM2MFactory& AddInstance(LwM2MInstance* instance);
 	LwM2MFactory& AddResource(int resourceId, TLVCallback callback);
 	LwM2MFactory& AddResource(int resourceId, void * value);
-//	LwM2MFactory& AddFixResource(int resourceId, char * data);
-//	LwM2MFactory& AddFixResource(int resourceId, uint8_t* data, size_t length);
-//	LwM2MFactory& AddFixResource(int resourceId, int64_t data);
 	LwM2MClient* Regist(const char* host, int port);
 
     private:
@@ -48,10 +45,6 @@ class LwM2MFactory {
 
 	LwM2MInstance* currentInstance;
 };
-
-//inline LwM2MFactory& LwM2MFactory::AddFixResource(int resourceId, char * data) {
-//	return AddFixResource(resourceId, (uint8_t *)data, strlen(data));
-//}
 
 }  // namespace LwM2M
 

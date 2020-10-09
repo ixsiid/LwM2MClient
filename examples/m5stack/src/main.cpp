@@ -3,6 +3,8 @@
 #include <freertos/FreeRTOS.h>
 #include <stdio.h>
 
+#include <esp_sleep.h>
+
 #include <Button.hpp>
 #include <ili9341.hpp>
 #include <lwm2mFactory.hpp>
@@ -13,6 +15,8 @@
 
 #include "lwm2m_credential.hpp"
 #include "wifi_credential.hpp"
+
+#include "soracomDevice.hpp"
 
 #define TAG "LwM2M Client"
 #include "log.h"
@@ -46,6 +50,9 @@ void app_main() {
 
 	size_t _wifi_a = esp_get_free_heap_size();
 
+	SoracomDevice *soracom = new SoracomDevice("jp.inventory.soracom.io", DEVICE_KEY, DEVICE_SECRET);
+	_i("soracom host: %s", soracom->getHostStr());
+
 	int64_t time = esp_timer_get_time();
 	_i("%llx", (uint64_t)time);
 
@@ -55,7 +62,7 @@ void app_main() {
 						// .Bootstrap("bootstrap.soracom.io", 5683)
 
 						// 払い出し済みのキーを使う場合
-						.SetSecurityPram(DEVICE_KEY, (const uint8_t *)DEVICE_SECRET)
+						.SetSecurityPram(soracom->getDeviceKey(), soracom->getDeviceSecret())
 
 						// 続けて登録するインスタンスを追加する
 						.AddInstance(device = new DeviceInstance())	// Object ID: 3, Instance ID: 0
@@ -71,7 +78,6 @@ void app_main() {
 							tlv->int32Value = esp_get_free_heap_size() / 1024;
 							return true;
 						})
-
 
 						.AddInstance(new LoadInstance(1))
 						.AddResource(5700, [](Operations operation, TLVData *tlv) {
@@ -97,7 +103,6 @@ void app_main() {
 						.AddResource(5701, (void *)"1234")
 						.AddResource(5750, (void *)"Load Cell Sum")
 
-
 						.AddInstance(new LightControlInstance(0))
 						.AddResource(5852, [&](Operations operation, TLVData *tlv) {
 							if (operation == Operations::Read) {
@@ -111,14 +116,14 @@ void app_main() {
 						})
 						.AddResource(5701, (void *)"lux")
 
-						.Regist(LWM2M_HOST, 5684);
+						.Regist(soracom->getHostStr(), 5684);
 
 	device->addError(Error::LowBattery);
 	device->addError(Error::GPSFailure);
 	device->addError(Error::OutOfMemory);
 
 	values[0] = values[1] = 0;
-	time = esp_timer_get_time();
+	time				  = esp_timer_get_time();
 
 	size_t _lwm2m_a = esp_get_free_heap_size();
 

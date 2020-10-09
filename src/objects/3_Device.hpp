@@ -2,9 +2,6 @@
 
 #include "lwm2mInstance.hpp"
 
-#define TAG "3_Device"
-#include "log.h"
-
 namespace LwM2MObject {
 using namespace LwM2M;
 
@@ -44,7 +41,6 @@ class DeviceInstance : public LwM2MInstance {
 DeviceInstance::DeviceInstance() : LwM2MInstance(3, 0) {
 	errors = new List();  // Integer
 	errors->add(0, (void*)Error::NoError);
-	_i("Error pointer: %p", errors);
 
 	// Object ID = 3
 	this->declareResource(0, Operations::Read, DataType::String, false);               // Manufacture

@@ -53,6 +53,8 @@ class LwM2MClient {
 	uint64_t updatePeriod;
 	char location[16];
 
+	int dtlsHandshakeRetryCount;
+
 	bool registered;
 	bool bootstraped;
 

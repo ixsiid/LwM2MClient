@@ -48,6 +48,8 @@ LwM2MClient::LwM2MClient(const char *endpoint, uint16_t lifetime, List *instance
 
 		registerInstancesLength += sprintf(registerInstances + registerInstancesLength, ",</%u/%u>", objectId, (uint16_t)(id & 0xffff));
 	});
+
+	dtlsHandshakeRetryCount = 0;
 }
 
 void LwM2MClient::SkipBootstrap(const char *identity, uint8_t *psk) {
@@ -95,7 +97,15 @@ bool LwM2MClient::Bootstrap() {
 
 bool LwM2MClient::CheckEvent() {
 	if (!dtls->isVerified()) {
+		if (dtlsHandshakeRetryCount > 5) {
+			_i("LwM2M: DTLS handshake retry over");
+			vTaskDelay(120 * 1000 / portTICK_PERIOD_MS);
+			return false;
+		}
+		dtlsHandshakeRetryCount++;
+
 		_i("LwM2M: dtls not verified");
+
 		if (dtls->handshaking(this->identity, this->psk)) {
 			updatedTimestamp = 0;
 

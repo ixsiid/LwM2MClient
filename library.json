@@ -1,0 +1,22 @@
+{
+	"name": "LwM2MClient",
+	"keywords": "esp32, LwM2M, espidf",
+	"description": "LwM2M client for ESP-IDF",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ixsiid/LwM2MClient.git"
+	},
+	"authors": [
+		{
+			"name": "IXSIID",
+			"email": "ixsiid@halzion.net",
+			"url": "https://halzion.net",
+			"maintainer": true
+		}
+	],
+	"version": "1.0.0",
+	"frameworks": [
+		"espidf"
+	],
+	"platforms": "espressif32"
+}
